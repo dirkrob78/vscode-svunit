@@ -52,7 +52,7 @@ export class TestFile {
 		parseSVUnitTestFile(content, {
 			onTest: (range, label) => {
 				const parent = ancestors[ancestors.length - 1];
-				const data = new TestCase(a, operator as Operator, b, expected, thisGeneration);
+				const data = new TestCase(label, thisGeneration);
 				const id = `${item.uri}/${data.getLabel()}`;
 
 
@@ -71,46 +71,29 @@ export class TestHeading {
 	constructor(public generation: number) { }
 }
 
-type Operator = '+' | '-' | '*' | '/';
-
 export class TestCase {
 	constructor(
-		private readonly a: number,
-		private readonly operator: Operator,
-		private readonly b: number,
-		private readonly expected: number,
+		public label: string,
 		public generation: number
 	) { }
 
 	getLabel() {
-		return `${this.a} ${this.operator} ${this.b} = ${this.expected}`;
+		return this.label;
 	}
 
 	async run(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
 		const start = Date.now();
 		await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-		const actual = this.evaluate();
 		const duration = Date.now() - start;
 
-		if (actual === this.expected) {
+		// Simulate 50% of tests failing
+		if (Math.random() < 0.94) {
 			options.passed(item, duration);
 		} else {
-			const message = vscode.TestMessage.diff(`Expected ${item.label}`, String(this.expected), String(actual));
+			const message = vscode.TestMessage.diff(`Expected ${item.label}`, "expected=TODO", "actual=TODO");
 			message.location = new vscode.Location(item.uri!, item.range!);
 			options.failed(item, message, duration);
 		}
 	}
 
-	private evaluate() {
-		switch (this.operator) {
-			case '-':
-				return this.a - this.b;
-			case '+':
-				return this.a + this.b;
-			case '/':
-				return Math.floor(this.a / this.b);
-			case '*':
-				return this.a * this.b;
-		}
-	}
 }
