@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { parse } from 'shell-quote';
 import { TestCase } from './testTree';
+import { dir } from 'console';
 
 export async function activate(context: vscode.ExtensionContext) {
     const controller = vscode.tests.createTestController('SVUnitTestController', 'SVUnit Tests');
@@ -136,14 +136,15 @@ export async function activate(context: vscode.ExtensionContext) {
 			svunitFilter = '\'*\'';
 
 		// Split runCommand into arguments
-        const runCommand = vscode.workspace.getConfiguration('svunit').get('runCommand') as string;
-        const args = parse(runCommand);
+        let runCommand = vscode.workspace.getConfiguration('svunit').get('runCommand') as string;
+		runCommand += ' --filter ' + svunitFilter;
 
         // Launch SVUnit and process output lines without delay
 		// TODO: add setup script option
-        const process = require('child_process').spawn(
-			runCommand + " --filter " + svunitFilter, [],
-			{ shell: true });
+        const process = require('child_process').spawn(runCommand, [],
+			{ shell: true, 
+				cwd: vscode.workspace.workspaceFolders?.[0].uri.fsPath });
+		console.log('Dir: ' + vscode.workspace.workspaceFolders?.[0].uri.fsPath);
 
         const svStatusRe = /^INFO:  \[(\d+)\]\[(\w+)\]: (\w+)::(RUNNING|PASSED|FAILED)/;
         const svEqFail = /^ERROR: \[(\d+)\]\[(\w+)\]: (\w+): \((.*)\) !== \((.*)\) \(at (.*) line:(\d+)\)/;
@@ -153,6 +154,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		process.stdout.on('data', (data: any) => {
 			const lines = data.toString().split('\n');
 			lines.forEach((line: string) => {
+				console.log("Line: " + line);
 				// If line starts with Usage: show an error message
 				if (line.startsWith('Usage:')) {
 					vscode.window.showErrorMessage(line);
@@ -180,11 +182,27 @@ export async function activate(context: vscode.ExtensionContext) {
 			});
 		});
 
-		// Start process
+		// Show error message if process exits with error
+		process.on('error', (err: any) => {
+			vscode.window.showErrorMessage(err);
+			console.log(`Child exited with code ${err}`);
+		});
 
+		// Start process
+		process.stderr.on('data', (data: any) => {
+            console.error(`stderr: ${data}`);
+        });
+
+        process.on('error', (err: any) => {
+            console.error(`Failed to start process: ${err}`);
+        });
 
 		// Make sure to end the run after all tests have been executed:
-		run.end();
+        process.on('close', (code: number) => {
+            console.log(`child process exited with code ${code}`);
+            run.end();
+        });
+
 	}
 
 	function isFile(test: vscode.TestItem) {
