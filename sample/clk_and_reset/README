@@ -1,2 +1,0 @@
-From example inside SVUnit
-Run: runSVUnit -s verilator -c "-Wno-lint" -o out

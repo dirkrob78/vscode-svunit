@@ -1,12 +1,12 @@
 {
-	"name": "test-provider-sample",
-	"displayName": "test-provider-sample",
-	"description": "Sample showing how to use the test APIs",
+	"name": "svunit",
+	"displayName": "SVUnit",
+	"description": "Run SVUnit tests from VSCode test explorer",
 	"version": "0.0.1",
 	"publisher": "vscode-samples",
 	"private": true,
 	"license": "MIT",
-	"repository": "https://github.com/Microsoft/vscode-extension-samples",
+	"repository": "",
 	"engines": {
 		"vscode": "^1.88.0"
 	},
@@ -14,7 +14,7 @@
 		"Other"
 	],
 	"activationEvents": [
-		"workspaceContains:*.md"
+		"workspaceContains:*_unit_test.sv"
 	],
 	"main": "./out/extension.js",
 	"scripts": {
@@ -34,19 +34,21 @@
 	},
 	"contributes": {
 		"configuration": {
-			"type": "object",
 			"properties": {
-				"SVUnitTestExtension.preCommand": {
+				"svunit.setupCommand": {
 					"type": "string",
 					"default": "cd ~/svunit-master; source Setup.zsh",
 					"description": "Setup command"
 				},
-				"SVUnitTestExtension.command": {
+				"svunit.runCommand": {
 					"type": "string",
-					"default": "runSVUnit -s verilator -c '-Wno-lint' -o out",
+					"default": "runSVUnit -s verilator -c '../usleep_wrapper.c --autoflush -Wno-lint' -o out",
 					"description": "Run command"
 				}
 			}
 		}
+	},
+	"dependencies": {
+		"shell-quote": "^1.8.2"
 	}
 }

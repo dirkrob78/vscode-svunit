@@ -4,6 +4,7 @@
 
 module rtl_unit_test;
   import svunit_pkg::svunit_testcase;
+  import "DPI-C" function void mysleep(real seconds);
 
   string name = "rtl_ut";
   svunit_testcase svunit_ut;
@@ -74,8 +75,9 @@ module rtl_unit_test;
     b = 1;
 
     pause();
+    mysleep(0.1);
     
-    `FAIL_IF(ab !== 1);
+    `FAIL_UNLESS_EQUAL(ab, 1);
   `SVTEST_END
 
   `SVTEST(ab_output_is_0)
@@ -83,8 +85,9 @@ module rtl_unit_test;
     b = 1;
 
     pause();
+    mysleep(0.2);
 
-    `FAIL_IF(ab !== 0);
+    `FAIL_UNLESS_EQUAL(ab, 0);
   `SVTEST_END
 
   //---------------------------
@@ -96,6 +99,7 @@ module rtl_unit_test;
 
     step();
     nextSamplePoint();
+    mysleep(0.3);
 
     `FAIL_IF(Qab !== 1);
   `SVTEST_END
@@ -106,6 +110,7 @@ module rtl_unit_test;
 
     step();
     nextSamplePoint();
+    mysleep(0.4);
 
     `FAIL_IF(Qab !== 0);
   `SVTEST_END
