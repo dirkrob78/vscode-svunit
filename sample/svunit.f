@@ -1,4 +1,6 @@
-+incdir+$SVUNIT_INSTALL/examples/modules/clk_and_reset/someLibDir
++incdir+../someLibDir
 +incdir+$SVUNIT_INSTALL/svunit_base/util
 
-$SVUNIT_INSTALL/examples/modules/clk_and_reset/my_and_module.v
+// Paths relative to out folder
+../my_and_module.v
+../usleep_wrapper.c

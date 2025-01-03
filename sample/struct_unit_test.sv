@@ -83,6 +83,8 @@ typedef struct {
     struct2.field2 = 21;
 
     // Compare the structs
+    $display("Testing structure equality");
+    $display("should fail");
     `FAIL_UNLESS_EQUAL(struct1, struct2);
 `SVTEST_END
 

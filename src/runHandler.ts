@@ -29,8 +29,16 @@ export async function runHandler(
         svunitFilter = '\'*\'';
 
     // Split runCommand into arguments
-    let runCommand = vscode.workspace.getConfiguration('svunit').get('runCommand') as string;
-    runCommand += ' --filter ' + svunitFilter;
+    let simulator = vscode.workspace.getConfiguration('svunit').get('simulator') as string;
+    let runCommands = vscode.workspace.getConfiguration('svunit').get('runCommands') as Array<string>;
+    let runCommand = runCommands[0];
+    runCommands.slice(1).forEach((command) => {
+        if (command.startsWith(simulator + ': ')) {
+            runCommand = command.replace(simulator + ': ', '');
+        }
+    });
+    runCommand = runCommand.replace("$SIMULATOR", simulator);
+    runCommand = runCommand.replace("$FILTER", svunitFilter);
 
     // Launch SVUnit and process output lines without delay
     // TODO: add setup script option
@@ -48,11 +56,19 @@ export async function runHandler(
     let test: vscode.TestItem | undefined;
     process.stdout.on('data', (data: any) => {
         const lines = data.toString().split('\n');
-        lines.forEach((line: string) => {
+        lines.forEach((line: string, index: number) => {
+            // Ignore the last line if it is empty
+            if (index === lines.length - 1 && line === '') {
+                return;
+            }
             // console.log("Line: " + line);
             // If line starts with Usage: show an error message
             if (line.startsWith('Usage:')) {
                 vscode.window.showErrorMessage(line);
+            }
+            // Add lines to the tests output
+            if (test) {
+                run.appendOutput(line + '\r\n', undefined, test);
             }
             if (line.startsWith('INFO:')) {
                 const svStatus = svStatusRe.exec(line);
@@ -66,12 +82,15 @@ export async function runHandler(
                         run.started(test);
                         startTime = Date.now();
                         failMessages = [];
+                        run.appendOutput(line + '\r\n', undefined, test);
                     } else if (status === 'PASSED') {
                         let duration = Date.now() - startTime;
                         run.passed(test, duration);
+                        test = undefined;
                     } else if (status === 'FAILED') {
                         let duration = Date.now() - startTime;
                         run.failed(test, failMessages, duration);
+                        test = undefined;
                     }
                     return;
                 }

@@ -35,15 +35,31 @@
 	"contributes": {
 		"configuration": {
 			"properties": {
-				"svunit.setupCommand": {
+				"svunit.simulator": {
 					"type": "string",
-					"default": "cd ~/svunit-master; source Setup.zsh",
-					"description": "Setup command"
+					"default": "verilator",
+					"enum": [
+						"verilator",
+						"vcs",
+						"questa",
+						"modelsim",
+						"riviera",
+						"ius",
+						"xcelium",
+						"dsim"
+					],
+					"description": "Select which simulator to use with runSVUnit."
 				},
-				"svunit.runCommand": {
-					"type": "string",
-					"default": "runSVUnit -s verilator -c '../usleep_wrapper.c --autoflush -Wno-lint' -o out",
-					"description": "Run command"
+				"svunit.runCommands": {
+					"type": "array",
+					"description": "Simulator run command mappings. Format: simulator: commandString\n$SIMULATOR and $FILTER will be replaced with the simulator and filter expression respectively.",
+					"items": {
+						"type": "string"
+					},
+					"default": [
+						"runSVUnit -s $SIMULATOR -o out --filter $FILTER",
+						"verilator: runSVUnit -s $SIMULATOR -c '--autoflush -Wno-lint' -o out --filter $FILTER"
+					]
 				}
 			}
 		}
