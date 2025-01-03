@@ -9,14 +9,19 @@ export async function runHandler(
 ) {
     const run = controller.createTestRun(request);
 
-    function* filterAndMapTests(tests: ReadonlyArray<vscode.TestItem>): Generator<string> {
-        for (const test of tests) {
+    function filterAndMapTests(tests: ReadonlyArray<vscode.TestItem>): string[] {
+        return tests.flatMap(test => {
             if (!isFile(test)) {
                 let parentShortLabel = test.parent?.label
                     .replace(/_unit_test\.sv$/, '_ut');
-                yield parentShortLabel + '.' + test.label;
+                return [`${parentShortLabel}.${test.label}`];
+            } else {
+                // If a file is requested, run all tests for it
+                let parentShortLabel = test.label
+                    .replace(/_unit_test\.sv$/, '_ut');
+                return [`${parentShortLabel}.*`];
             }
-        }
+        });
     }
 
     // Add requested tests to SVUnit filter
@@ -26,7 +31,8 @@ export async function runHandler(
     if (request.exclude && request.exclude.length > 0)
         svunitFilter += '-' + [...filterAndMapTests(request.exclude)].join(':');
     if (svunitFilter.length == 0)
-        svunitFilter = '\'*\'';
+        svunitFilter = '*';
+    svunitFilter = `'${svunitFilter}'`;
 
     // Split runCommand into arguments
     let simulator = vscode.workspace.getConfiguration('svunit').get('simulator') as string;

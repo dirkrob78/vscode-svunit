@@ -71,7 +71,7 @@ typedef struct {
 //---------------------------------
 // Test equality of two simple structs
 //---------------------------------
-`SVTEST(test_struct_equality)
+`SVTEST(test_struct_equality_should_fail)
     simple_struct_t struct1;
     simple_struct_t struct2;
 
@@ -87,6 +87,24 @@ typedef struct {
     $display("should fail");
     `FAIL_UNLESS_EQUAL(struct1, struct2);
 `SVTEST_END
+
+`SVTEST(test_struct_equality_should_pass)
+    simple_struct_t struct1;
+    simple_struct_t struct2;
+
+    // Initialize the structs
+    struct1.field1 = 10;
+    struct1.field2 = 20;
+
+    struct2.field1 = 10;
+    struct2.field2 = 20;
+
+    // Compare the structs
+    $display("Testing structure equality");
+    $display("should pass");
+    `FAIL_UNLESS_EQUAL(struct1, struct2);
+`SVTEST_END
+
 
 `SVUNIT_TESTS_END
 
