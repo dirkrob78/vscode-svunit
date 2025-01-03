@@ -1,6 +1,4 @@
 import * as vscode from 'vscode';
-import { TestCase } from './testTree';
-import { dir } from 'console';
 
 export async function activate(context: vscode.ExtensionContext) {
     const controller = vscode.tests.createTestController('SVUnitTestController', 'SVUnit Tests');
@@ -147,10 +145,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		console.log('Dir: ' + vscode.workspace.workspaceFolders?.[0].uri.fsPath);
 
         const svStatusRe = /^INFO:  \[(\d+)\]\[(\w+)\]: (\w+)::(RUNNING|PASSED|FAILED)/;
-        const svEqFail = /^ERROR: \[(\d+)\]\[(\w+)\]: (\w+): \((.*)\) !== \((.*)\) \(at (.*) line:(\d+)\)/;
-        const svFail = /^ERROR: \[(\d+)\]\[(\w+)\]: (.*) \(at (.*) line:(\d+)\)/;
+        const svEqFailRe = /^ERROR: \[(\d+)\]\[(\w+)\]: (\w+): \((.*)\) \!\=\= \((.*)\) \(at (.*) line:(\d+)\)/;
+        const svFailRe   = /^ERROR: \[(\d+)\]\[(\w+)\]: (.*) \(at (.*) line:(\d+)\)/;
 
 		let startTime = Date.now();
+		let failMessages: vscode.TestMessage[] = [];
+		let test: vscode.TestItem | undefined;
 		process.stdout.on('data', (data: any) => {
 			const lines = data.toString().split('\n');
 			lines.forEach((line: string) => {
@@ -163,21 +163,46 @@ export async function activate(context: vscode.ExtensionContext) {
 					const svStatus = svStatusRe.exec(line);
 					if (svStatus) {
 						const [_, simTime, shortFileName, testName, status] = svStatus;
-						let test = getTest(shortFileName, testName);
+						test = getTest(shortFileName, testName);
 						// Skip if test is undefined
 						if (!test)
 							return;
 						if (status === 'RUNNING') {
 							run.started(test);
 							startTime = Date.now();
+							failMessages = [];
 						} else if (status === 'PASSED') {
 							let duration = Date.now() - startTime;
 							run.passed(test, duration);
 						} else if (status === 'FAILED') {
 							let duration = Date.now() - startTime;
-							run.failed(test, [], duration);
+							run.failed(test, failMessages, duration);
 						}
+						return;
 					}
+				}
+				const svEqFail = svEqFailRe.exec(line);
+				if (svEqFail) {
+					const [_, simTime, shortFileName, check, actual, expected, fileName, lineNo] = svEqFail;
+					// Skip if test is undefined
+					if (!test)
+						return;
+					let message = vscode.TestMessage.diff(check, expected, actual);
+					message.location = new vscode.Location(vscode.Uri.file(fileName), new vscode.Position(parseInt(lineNo) - 1, 0));
+					failMessages.push(message);
+					return;
+				}
+				const svFail = svFailRe.exec(line);
+				if (svFail) {
+					const [_, simTime, shortFileName, check, fileName, lineNo] = svFail;
+					// Skip if test is undefined
+					if (!test)
+						return;
+					// create a message with the error
+					let message = new vscode.TestMessage(check);
+					message.location = new vscode.Location(vscode.Uri.file(fileName), new vscode.Position(parseInt(lineNo) - 1, 0));
+					failMessages.push(message);
+					return;
 				}
 			});
 		});
