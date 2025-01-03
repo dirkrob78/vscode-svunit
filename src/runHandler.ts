@@ -40,8 +40,8 @@ export async function runHandler(
     console.log('Dir: ' + vscode.workspace.workspaceFolders?.[0].uri.fsPath);
 
     const svStatusRe = /^INFO:  \[(\d+)\]\[(\w+)\]: (\w+)::(RUNNING|PASSED|FAILED)/;
-    const svEqFailRe = /^ERROR: \[(\d+)\]\[(\w+)\]: (\w+): \((.*)\) \!\=\= \((.*)\) \(at (.*) line:(\d+)\)/;
-    const svFailRe   = /^ERROR: \[(\d+)\]\[(\w+)\]: (.*) \(at (.*) line:(\d+)\)/;
+    // Error match, with either (at filename line:123) or (at filename:123)
+    const svFailRe   = /^ERROR: \[(\d+)\]\[(\w+)\]: (\w+): (.*) \(at (?:(.*) line:(\d+))|(?:(.*):(\d+)\))/;
 
     let startTime = Date.now();
     let failMessages: vscode.TestMessage[] = [];
@@ -49,7 +49,7 @@ export async function runHandler(
     process.stdout.on('data', (data: any) => {
         const lines = data.toString().split('\n');
         lines.forEach((line: string) => {
-            console.log("Line: " + line);
+            // console.log("Line: " + line);
             // If line starts with Usage: show an error message
             if (line.startsWith('Usage:')) {
                 vscode.window.showErrorMessage(line);
@@ -76,25 +76,14 @@ export async function runHandler(
                     return;
                 }
             }
-            const svEqFail = svEqFailRe.exec(line);
-            if (svEqFail) {
-                const [_, simTime, shortFileName, check, actual, expected, fileName, lineNo] = svEqFail;
-                // Skip if test is undefined
-                if (!test)
-                    return;
-                let message = vscode.TestMessage.diff(check, expected, actual);
-                message.location = new vscode.Location(vscode.Uri.file(fileName), new vscode.Position(parseInt(lineNo) - 1, 0));
-                failMessages.push(message);
-                return;
-            }
             const svFail = svFailRe.exec(line);
             if (svFail) {
-                const [_, simTime, shortFileName, check, fileName, lineNo] = svFail;
+                const [_, simTime, shortFileName, check, messageStr, fileName, lineNo] = svFail;
                 // Skip if test is undefined
                 if (!test)
                     return;
                 // create a message with the error
-                let message = new vscode.TestMessage(check);
+                let message = new vscode.TestMessage(messageStr);
                 message.location = new vscode.Location(vscode.Uri.file(fileName), new vscode.Position(parseInt(lineNo) - 1, 0));
                 failMessages.push(message);
                 return;

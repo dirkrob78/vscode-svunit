@@ -13,6 +13,33 @@ export async function discoverAllFilesInWorkspace(controller: vscode.TestControl
         const testFile = getOrCreateFile(controller, file);
         await parseTestsInFileContents(controller, testFile);
     }
+
+    // Set up file system watcher
+    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+    watcher.onDidChange(async uri => {
+        console.log(`File changed: ${uri.toString()}`);
+        const testFile = getOrCreateFile(controller, uri);
+        await parseTestsInFileContents(controller, testFile);
+    });
+
+    watcher.onDidCreate(async uri => {
+        console.log(`File created: ${uri.toString()}`);
+        const testFile = getOrCreateFile(controller, uri);
+        await parseTestsInFileContents(controller, testFile);
+    });
+
+    watcher.onDidDelete(uri => {
+        console.log(`File deleted: ${uri.toString()}`);
+        const testItem = controller.items.get(uri.toString());
+        if (testItem) {
+            controller.items.delete(uri.toString());
+        }
+    });
+
+    // Ensure the watcher is disposed when the extension is deactivated
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+        watcher.dispose();
+    });
 }
 
 export function getOrCreateFile(controller: vscode.TestController, uri: vscode.Uri) {
