@@ -65,8 +65,15 @@ module struct_unit_test;
   // Define the structs
 typedef struct {
     int field1;
-    int field2;
+    real field2;
 } simple_struct_t;
+
+`SVTEST(test_real_equality)
+    real x, y;
+    x = 1.1;
+    y = 2.2;
+    `FAIL_UNLESS_EQUAL(x, y);
+`SVTEST_END
 
 //---------------------------------
 // Test equality of two simple structs
@@ -77,10 +84,12 @@ typedef struct {
 
     // Initialize the structs
     struct1.field1 = 10;
-    struct1.field2 = 20;
+    struct1.field2 = 1.1;
 
-    struct2.field1 = 10;
-    struct2.field2 = 21;
+    struct2.field1 = 11;
+    struct2.field2 = 2.2;
+
+    $display(struct2.field2);
 
     // Compare the structs
     $display("Testing structure equality");
@@ -94,10 +103,10 @@ typedef struct {
 
     // Initialize the structs
     struct1.field1 = 10;
-    struct1.field2 = 20;
+    struct1.field2 = 20.0/7;
 
     struct2.field1 = 10;
-    struct2.field2 = 20;
+    struct2.field2 = 20.0/7;
 
     // Compare the structs
     $display("Testing structure equality");

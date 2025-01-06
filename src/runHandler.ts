@@ -45,6 +45,7 @@ export async function runHandler(
     });
     runCommand = runCommand.replace("$SIMULATOR", simulator);
     runCommand = runCommand.replace("$FILTER", svunitFilter);
+    run.appendOutput(runCommand + '\r\n');
 
     // Launch SVUnit and process output lines without delay
     // TODO: add setup script option
@@ -57,9 +58,17 @@ export async function runHandler(
     // Error match, with either (at filename line:123) or (at filename:123)
     const svFailRe   = /^ERROR: \[(\d+)\]\[(\w+)\]: (\w+): (.*) \(at (?:(.*) line:(\d+))|(?:(.*):(\d+)\))/;
 
+    let test: vscode.TestItem | undefined;
+    // capture process.stderr and add to test output in red
+    process.stderr.on('data', (data: any) => {
+        const ansiRed = '\x1b[31m';
+        const ansiReset = '\x1b[0m';
+        run.appendOutput(ansiRed + data.toString().replace(/\n/g, '\r\n')
+            + ansiReset, undefined, test);
+    });
+
     let startTime = Date.now();
     let failMessages: vscode.TestMessage[] = [];
-    let test: vscode.TestItem | undefined;
     process.stdout.on('data', (data: any) => {
         const lines = data.toString().split('\n');
         lines.forEach((line: string, index: number) => {
@@ -72,15 +81,12 @@ export async function runHandler(
             if (line.startsWith('Usage:')) {
                 vscode.window.showErrorMessage(line);
             }
-            // Add lines to the tests output
-            if (test) {
-                run.appendOutput(line + '\r\n', undefined, test);
-            }
             if (line.startsWith('INFO:')) {
                 const svStatus = svStatusRe.exec(line);
                 if (svStatus) {
                     const [_, simTime, shortFileName, testName, status] = svStatus;
                     test = getTest(shortFileName, testName, controller);
+                    run.appendOutput(line + '\r\n', undefined, test);
                     // Skip if test is undefined
                     if (!test)
                         return;
@@ -88,7 +94,6 @@ export async function runHandler(
                         run.started(test);
                         startTime = Date.now();
                         failMessages = [];
-                        run.appendOutput(line + '\r\n', undefined, test);
                     } else if (status === 'PASSED') {
                         let duration = Date.now() - startTime;
                         run.passed(test, duration);
@@ -101,6 +106,8 @@ export async function runHandler(
                     return;
                 }
             }
+            // Add lines to the test output (or test can be undefined)
+            run.appendOutput(line + '\r\n', undefined, test);
             const svFail = svFailRe.exec(line);
             if (svFail) {
                 const [_, simTime, shortFileName, check, messageStr, fileName, lineNo] = svFail;
