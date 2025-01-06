@@ -1,26 +1,24 @@
-# Test Provider Sample
+# Test Provider for SVUnit
 
-This sample demonstrates usage of the Test Provider API. It looks for tests as additions in `.md` files, with heading as groups, for example:
-
-```
-# Easy Math
-
-2 + 2 = 4 // this test will pass
-2 + 2 = 5 // this test will fail
-
-# Harder Math
-
-230230 + 5819123 = 6049353
-```
+Runs SVUnit and collects resuls in the Test Provider API.
 
 ## VS Code API
 
-todo
+If certain tests are select to be included, or excluded (by hiding the test), runSVUnit will be called with an appropriate "--filter $FILTER"
 
-## Running the Sample
+The simulator can be changed by setting: svunit.simulator.
 
-- Run `npm install` in terminal to install dependencies
-- Run the `Run Extension` target in the Debug View. This will:
-	- Start a task `npm: watch` to compile the code
-	- Run the extension in a new VS Code window
-- Create a `test.md` file containing the given content
+The run command can be set for each simulator setting in svunit.runCommands.
+
+By default runSVUnit will be run from the directory of the project folder. To run SVUnit in multiple directories, add run folder in svunit.runFolders
+
+Example test tree:
+* runFolder1
+  * rtl_unit_test.sv
+    * test_1
+	* test_2
+  * other_unit_test.sv
+    * test_3
+* runFolder2
+  * another_unit_test.sv
+    * test_4
