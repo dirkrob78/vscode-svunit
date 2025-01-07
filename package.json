@@ -52,13 +52,13 @@
 				},
 				"svunit.runCommands": {
 					"type": "array",
-					"description": "Simulator run command mappings. Format: simulator: commandString\n$SIMULATOR and $FILTER will be replaced with the simulator and filter expression respectively.",
+					"description": "Simulator run command mappings. Format: simulator: commandString\n$SIMULATOR and $TEST_SELECT will be replaced with the simulator and test selection expression respectively.",
 					"items": {
 						"type": "string"
 					},
 					"default": [
-						"runSVUnit -s $SIMULATOR -o out --filter $FILTER",
-						"verilator: runSVUnit -s $SIMULATOR -c '--autoflush -Wno-lint' -o out --filter $FILTER"
+						"runSVUnit -s $SIMULATOR -o out $TEST_SELECT",
+						"verilator: runSVUnit -s $SIMULATOR -c '--autoflush -Wno-lint' -o out $TEST_SELECT"
 					]
 				}
 			}

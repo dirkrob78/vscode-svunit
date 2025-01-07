@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getTest, isFile } from './helpers';
+import test from 'node:test';
 
 export async function runHandler(
     shouldDebug: boolean,
@@ -8,34 +9,6 @@ export async function runHandler(
     controller: vscode.TestController
 ) {
     const run = controller.createTestRun(request);
-
-    function filterAndMapTests(tests: ReadonlyArray<vscode.TestItem>, testFolder: vscode.TestItem): string[] {
-        // Help create a filter string for SVUnit from list of tests
-        return tests.flatMap(test => {
-            if (!test.parent && test===testFolder) {
-                // Top level - folders: run all tests in the folder
-                return ['*'];
-            } else if (!test.parent?.parent && test.parent===testFolder) {
-                // 2nd level - test files: run all tests in the file
-                if (!tests.includes(test.parent)) {
-                    let shortFileName = test.label.replace(/_unit_test\.sv$/, '_ut');
-                    return [`${shortFileName}.*`];
-                }
-                else
-                    return [];
-            } else if (test.parent?.parent===testFolder) {
-                // 3rd level - individual tests: run the test
-                if (!tests.includes(test.parent) && !tests.includes(test.parent?.parent)) {
-                    let shortFileName = test.label.replace(/_unit_test\.sv$/, '_ut');
-                    return [`${shortFileName}.${test.label}`];
-                }
-                else
-                    return [];
-            } else {
-                return [];
-            }
-        });
-    }
 
     // Convert controller.items to an array and sort by label
     const sortedFolders = Array.from(controller.items).sort((a, b) => a[1].label.localeCompare(b[1].label));
@@ -51,20 +24,69 @@ export async function runHandler(
         if (testFolder.children.size == 0)
             continue;
 
-        // Add requested tests to SVUnit filter
-        let svunitFilter = '';
-        if (request.include && request.include.length > 0)
-            svunitFilter += [...filterAndMapTests(request.include, testFolder)].join(':');
-        else
-            svunitFilter = '*';
+        if (request.exclude?.includes(testFolder))
+            continue
 
-        // Skip if no tests are requested for this folder
-        if (svunitFilter === '')
-            continue;
+        // Process the test files
+        let allFiles: string[] = [];
+        let testFiles: string[] = [];
+        let allIncludes: string[] = [];
+        let allExcludes: string[] = [];
+        let allPossibleIncludes: string[] = [];
+        testFolder.children.forEach((testFile) => {
+            const shortFileName = testFile.label.replace(/_unit_test\.sv$/, '_ut');
+            allFiles.push(testFile.label);
+            if (request.exclude?.includes(testFile))
+                return;
 
-        if (request.exclude && request.exclude.length > 0)
-            svunitFilter += '-' + [...filterAndMapTests(request.exclude, testFolder)].join(':');
-        svunitFilter = `'${svunitFilter}'`;
+            // Process individual tests inside the file
+            let includedTests: string[] = [];
+            let excludedTests: string[] = [];
+            testFile.children.forEach((testItem) => {
+                if (request.exclude?.includes(testItem))
+                    excludedTests.push(`${shortFileName}.${testItem.label}`);
+                else if (request.include?.includes(testItem))
+                    includedTests.push(`${shortFileName}.${testItem.label}`);
+            });
+
+            const isTestFileIncluded = (!request.include || request.include.includes(testFile) ||
+                request.include.includes(testFolder));
+
+            if (isTestFileIncluded || includedTests.length > 0) {
+                const defaultInclude = `${shortFileName}.*`;
+                allPossibleIncludes.push(defaultInclude);
+                if (includedTests.length == 0)
+                    includedTests = [defaultInclude];
+                testFiles.push(testFile.label);
+                allIncludes.push(...includedTests);
+                allExcludes.push(...excludedTests);
+            }
+        });
+
+
+        // Construct the test select string like:
+        //  "-t file1 -t file2 --filter file1.*-file2.test3"
+        let testSelect = "";
+        if (testFiles.length == 0)
+            continue; // Skip this folder if no test files matched
+        else if(testFiles.length < testFolder.children.size)
+            // Add selected test files, unless all files are included
+            testSelect = testFiles.map(file => `-t ${file}`).join(' ');
+
+        let filterText = allIncludes.join(':');
+        // If all tests are included, don't specify the filter include part
+        if (filterText == allPossibleIncludes.join(':'))
+            filterText = "";
+        // Add exclude filter
+        if (allExcludes.length > 0)
+            filterText += '-' + allExcludes.join(':');
+
+        if (filterText != "") {
+            if (testSelect != "")
+                testSelect += " ";
+            testSelect += `--filter ${filterText}`;
+        }
+
 
         // Split runCommand into arguments
         let simulator = vscode.workspace.getConfiguration('svunit').get('simulator') as string;
@@ -76,7 +98,7 @@ export async function runHandler(
             }
         });
         runCommand = runCommand.replace(/\$SIMULATOR/g, simulator);
-        runCommand = runCommand.replace(/\$FILTER/g, svunitFilter);
+        runCommand = runCommand.replace(/\$TEST_SELECT/g, testSelect);
         run.appendOutput(runCommand + '\r\n');
 
         run.appendOutput(`Processing folder: ${testFolder.label}\r\n`);
