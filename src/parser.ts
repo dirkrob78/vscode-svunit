@@ -1,3 +1,4 @@
+import path = require('path');
 import * as vscode from 'vscode';
 
 export async function discoverAllFilesInWorkspace(controller: vscode.TestController) {
@@ -10,29 +11,34 @@ export async function discoverAllFilesInWorkspace(controller: vscode.TestControl
     const testFiles = await vscode.workspace.findFiles(pattern);
     console.log(`Found ${testFiles.length} test files.`);
     for (const file of testFiles) {
-        const testFile = getOrCreateFile(controller, file);
-        await parseTestsInFileContents(controller, testFile);
+        await processTestFile(controller, file);
     }
 
     // Set up file system watcher
     const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-    watcher.onDidChange(async uri => {
-        console.log(`File changed: ${uri.toString()}`);
-        const testFile = getOrCreateFile(controller, uri);
-        await parseTestsInFileContents(controller, testFile);
+    watcher.onDidChange(async file => {
+        console.log(`File changed: ${file.toString()}`);
+        await processTestFile(controller, file);
     });
 
-    watcher.onDidCreate(async uri => {
-        console.log(`File created: ${uri.toString()}`);
-        const testFile = getOrCreateFile(controller, uri);
-        await parseTestsInFileContents(controller, testFile);
+    watcher.onDidCreate(async file => {
+        console.log(`File created: ${file.toString()}`);
+        await processTestFile(controller, file);
     });
 
     watcher.onDidDelete(uri => {
+        // Remove the test item from the controller,
+        // assumes uri of the test item is the file path
         console.log(`File deleted: ${uri.toString()}`);
         const testItem = controller.items.get(uri.toString());
         if (testItem) {
-            controller.items.delete(uri.toString());
+            // Save parent test item
+            const parentTest = testItem.parent;
+            // Delete the test item from it's parent list
+            parentTest?.children.delete(testItem.id);
+            // If parent test item (folder) is now empty, delete it too
+            if (parentTest && parentTest.children.size === 0)
+                parentTest.parent?.children.delete(parentTest.id);
         }
     });
 
@@ -42,15 +48,37 @@ export async function discoverAllFilesInWorkspace(controller: vscode.TestControl
     });
 }
 
+async function processTestFile(controller: vscode.TestController, file: vscode.Uri) {
+    const testFile = getOrCreateFile(controller, file);
+    if (testFile)
+        await parseTestsInFileContents(controller, testFile);
+}
+
 export function getOrCreateFile(controller: vscode.TestController, uri: vscode.Uri) {
-    const existing = controller.items.get(uri.toString());
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+    if (!workspaceFolder) {
+        return;
+    }
+
+    const relativePath = path.relative(workspaceFolder.uri.fsPath, uri.fsPath);
+    const dirname = path.dirname(relativePath) + '/';
+
+    // Create or get the directory-level test item
+    let dirItem = controller.items.get(dirname);
+    if (!dirItem) {
+        dirItem = controller.createTestItem(dirname, dirname);
+        controller.items.add(dirItem);
+    }
+
+    // Create or get the file-level test item
+    const existing = dirItem.children.get(uri.toString());
     if (existing) {
         return existing;
     }
 
-    const file = controller.createTestItem(uri.toString(), uri.path.split('/').pop()!, uri);
+    const file = controller.createTestItem(uri.toString(), path.basename(uri.fsPath), uri);
     file.canResolveChildren = true;
-    controller.items.add(file);
+    dirItem.children.add(file);
     console.log(`Created test item for file: ${file.label}`);
     return file;
 }

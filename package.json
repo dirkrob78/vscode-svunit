@@ -14,7 +14,7 @@
 		"Other"
 	],
 	"activationEvents": [
-		"workspaceContains:*_unit_test.sv"
+		"workspaceContains:**/*_unit_test.sv"
 	],
 	"main": "./out/extension.js",
 	"scripts": {
