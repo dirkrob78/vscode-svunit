@@ -5,8 +5,8 @@
 	"version": "0.0.2",
 	"publisher": "DirkRobinson",
 	"private": true,
-	"license": "MIT",
-	"repository": "SVUnit-vscode",
+	"license": "Apache-2.0",
+	"repository": "https://github.com/dirkrob78/vscode-svunit",
 	"engines": {
 		"vscode": "^1.88.0"
 	},
