@@ -2,11 +2,11 @@
 	"name": "svunit",
 	"displayName": "SVUnit",
 	"description": "Run SVUnit tests from VSCode test explorer",
-	"version": "0.0.1",
-	"publisher": "Dirk Robinson",
+	"version": "0.0.2",
+	"publisher": "DirkRobinson",
 	"private": true,
 	"license": "MIT",
-	"repository": "",
+	"repository": "SVUnit-vscode",
 	"engines": {
 		"vscode": "^1.88.0"
 	},
@@ -46,7 +46,9 @@
 						"riviera",
 						"ius",
 						"xcelium",
-						"dsim"
+						"dsim",
+						"custom1",
+						"custom2"
 					],
 					"description": "Select which simulator to use with runSVUnit."
 				},
