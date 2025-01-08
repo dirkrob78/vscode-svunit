@@ -3,7 +3,7 @@
 	"displayName": "SVUnit",
 	"description": "Run SVUnit tests from VSCode test explorer",
 	"version": "0.0.1",
-	"publisher": "vscode-samples",
+	"publisher": "Dirk Robinson",
 	"private": true,
 	"license": "MIT",
 	"repository": "",
@@ -49,6 +49,11 @@
 						"dsim"
 					],
 					"description": "Select which simulator to use with runSVUnit."
+				},
+				"svunit.setupCommand": {
+					"type": "string",
+					"default": "",
+					"description": "Optional env setup command to run before runCommands"
 				},
 				"svunit.runCommands": {
 					"type": "array",

@@ -1,6 +1,6 @@
 # Test Provider for SVUnit
 
-Runs SVUnit and collects resuls in the Test Provider API.
+Runs SVUnit and collects results in the Test Provider API. Note that SVUnit must be installed separately.
 
 ## VS Code API
 

@@ -1,9 +1,5 @@
 import * as vscode from 'vscode';
 
-export function isFile(test: vscode.TestItem) {
-    return test.canResolveChildren;
-}
-
 export function getTest(
     shortFileName: string, 
     testName: string,

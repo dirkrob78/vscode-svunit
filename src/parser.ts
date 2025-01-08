@@ -1,7 +1,9 @@
 import path = require('path');
 import * as vscode from 'vscode';
 
-export async function discoverAllFilesInWorkspace(controller: vscode.TestController) {
+export async function discoverAllFilesInWorkspace(
+    controller: vscode.TestController
+) {
     if (!vscode.workspace.workspaceFolders) {
         console.log('No workspace folders found.');
         return; // handle the case of no open folders
@@ -34,11 +36,12 @@ export async function discoverAllFilesInWorkspace(controller: vscode.TestControl
         if (testItem) {
             // Save parent test item
             const parentTest = testItem.parent;
-            // Delete the test item from it's parent list
+            // Delete the test item from its parent list
             parentTest?.children.delete(testItem.id);
             // If parent test item (folder) is now empty, delete it too
-            if (parentTest && parentTest.children.size === 0)
+            if (parentTest && parentTest.children.size === 0) {
                 parentTest.parent?.children.delete(parentTest.id);
+            }
         }
     });
 
@@ -48,13 +51,20 @@ export async function discoverAllFilesInWorkspace(controller: vscode.TestControl
     });
 }
 
-async function processTestFile(controller: vscode.TestController, file: vscode.Uri) {
+async function processTestFile(
+    controller: vscode.TestController,
+    file: vscode.Uri
+) {
     const testFile = getOrCreateFile(controller, file);
-    if (testFile)
+    if (testFile) {
         await parseTestsInFileContents(controller, testFile);
+    }
 }
 
-export function getOrCreateFile(controller: vscode.TestController, uri: vscode.Uri) {
+export function getOrCreateFile(
+    controller: vscode.TestController,
+    uri: vscode.Uri
+) {
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
     if (!workspaceFolder) {
         return;
@@ -76,14 +86,22 @@ export function getOrCreateFile(controller: vscode.TestController, uri: vscode.U
         return existing;
     }
 
-    const file = controller.createTestItem(uri.toString(), path.basename(uri.fsPath), uri);
+    const file = controller.createTestItem(
+        uri.toString(),
+        path.basename(uri.fsPath),
+        uri
+    );
     file.canResolveChildren = true;
     dirItem.children.add(file);
     console.log(`Created test item for file: ${file.label}`);
     return file;
 }
 
-export async function parseTestsInFileContents(controller: vscode.TestController, file: vscode.TestItem, contents?: string) {
+export async function parseTestsInFileContents(
+    controller: vscode.TestController,
+    file: vscode.TestItem,
+    contents?: string
+) {
     if (!file.uri) {
         console.log('File URI is undefined.');
         return;
@@ -100,7 +118,7 @@ export async function parseTestsInFileContents(controller: vscode.TestController
     const lines = contents.split('\n');
 
     let startLineNo = -1;
-    let label = "";
+    let label = '';
     // Delete all children
     file.children.forEach(child => file.children.delete(child.id));
 
@@ -113,7 +131,10 @@ export async function parseTestsInFileContents(controller: vscode.TestController
 
         const svtestEnd = svtestEndRe.exec(line);
         if (svtestEnd && startLineNo !== -1) {
-            const range = new vscode.Range(new vscode.Position(startLineNo, 0), new vscode.Position(lineNo, line.length));
+            const range = new vscode.Range(
+                new vscode.Position(startLineNo, 0),
+                new vscode.Position(lineNo, line.length)
+            );
             const tcase = controller.createTestItem(label, label, file.uri);
             tcase.range = range;
             file.children.add(tcase);

@@ -1,9 +1,12 @@
 import * as vscode from 'vscode';
-import { runHandler } from './runHandler';
+import { TestRunner } from './runHandler';
 import { discoverAllFilesInWorkspace, parseTestsInFileContents } from './parser';
 
 export async function activate(context: vscode.ExtensionContext) {
-    const controller = vscode.tests.createTestController('SVUnitTestController', 'SVUnit Tests');
+    const controller = vscode.tests.createTestController(
+        'SVUnitTestController',
+        'SVUnit Tests'
+    );
     context.subscriptions.push(controller);
 
     controller.resolveHandler = async test => {
@@ -16,14 +19,13 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     };
 
-	// console.log('2 Discovering all files in workspace...');
-	// discoverAllFilesInWorkspace();
+    const testRunner = new TestRunner(controller);
 
-	controller.createRunProfile(
-		'Run',
-		vscode.TestRunProfileKind.Run,
-		(request, token) => {
-			runHandler(false, request, token, controller);
-		}
-	);
+    controller.createRunProfile(
+        'Run',
+        vscode.TestRunProfileKind.Run,
+        (request, token) => {
+            testRunner.runHandler(false, request, token);
+        }
+    );
 }
