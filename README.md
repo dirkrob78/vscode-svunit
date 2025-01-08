@@ -12,7 +12,7 @@ The run command can be set for each simulator setting in `svunit.runCommands`
 
 For each folder under the project folder which contains one or more `*_unit_test.sv` files, a test group will be created. `svunit.runCommands` will be run in each of the folders when the "Run all tests" button is chosen, or in just one of the folders if a lower level run is selected.
 
-Example test tree:
+## Example test tree:
 * svunitFolder1/
   * rtl_unit_test.sv
     * test_1
@@ -22,3 +22,6 @@ Example test tree:
 * svunitFolder2/
   * another_unit_test.sv
     * test_4
+
+## Screenshots
+![Screenshot](screenshot1.png)
