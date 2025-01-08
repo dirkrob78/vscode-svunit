@@ -24,4 +24,4 @@ For each folder under the project folder which contains one or more `*_unit_test
     * test_4
 
 ## Screenshots
-![Screenshot](screenshot1.png)
+![Screenshot](images/screenshot1.png)
