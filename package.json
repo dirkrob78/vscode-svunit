@@ -2,7 +2,7 @@
 	"name": "svunit",
 	"displayName": "SVUnit",
 	"description": "Run SVUnit tests from VSCode test explorer",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"publisher": "DirkRobinson",
 	"private": true,
 	"license": "Apache-2.0",
