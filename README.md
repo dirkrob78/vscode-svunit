@@ -8,7 +8,7 @@ If certain tests are select to be included, or excluded (by hiding the test), ru
 
 The simulator can be changed by setting: `svunit.simulator`
 
-The run command can be set for each simulator setting in `svunit.runCommands`
+The run command can be set for each simulator setting in `svunit.runCommands`. The command will be launched inside a shell as `/bin/sh -c '$COMMAND'`.
 
 For each folder under the project folder which contains one or more `*_unit_test.sv` files, a test group will be created. `svunit.runCommands` will be run in each of the folders when the "Run all tests" button is chosen, or in just one of the folders if a lower level run is selected.
 

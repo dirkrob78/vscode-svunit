@@ -195,47 +195,53 @@ export class TestRunner {
             let failMessages: vscode.TestMessage[] = [];
             process.stdout.on('data', (data: any) => {
                 const lines = data.toString().split('\n');
+                // Anything after the last newline is a partial line
+                // send to test output but don't process
+                let partialLine = lines.pop() || '';
+                if (partialLine !== '')
+                   this.run.appendOutput(partialLine, undefined, test);
+
                 lines.forEach((line: string, index: number) => {
-                    if (index === lines.length - 1 && line === '') {
-                        return;
-                    }
                     if (line.startsWith('Usage:')) {
                         vscode.window.showErrorMessage(line);
                     }
                     const svStatus = svStatusRe.exec(line);
+                    let isTestDone = false;
+                    let svFail: RegExpExecArray | null;
                     if (svStatus) {
                         const [_, simTime, shortFileName, testName, status] = svStatus;
                         test = getTest(shortFileName, testName, testFolder);
-                        this.run.appendOutput(line + '\r\n', undefined, test);
-                        if (!test) return;
-                        if (status === 'RUNNING') {
-                            this.run.started(test);
-                            startTime = Date.now();
-                            failMessages = [];
-                        } else if (status === 'PASSED') {
-                            let duration = Date.now() - startTime;
-                            this.run.passed(test, duration);
-                            test = undefined;
-                        } else if (status === 'FAILED') {
-                            let duration = Date.now() - startTime;
-                            this.run.failed(test, failMessages, duration);
-                            test = undefined;
+                        //this.run.appendOutput(line + '\r\n', undefined, test);
+                        if (test) {
+                            if (status === 'RUNNING') {
+                                this.run.started(test);
+                                startTime = Date.now();
+                                failMessages = [];
+                            } else if (status === 'PASSED') {
+                                let duration = Date.now() - startTime;
+                                this.run.passed(test, duration);
+                                isTestDone = true;
+                            } else if (status === 'FAILED') {
+                                let duration = Date.now() - startTime;
+                                this.run.failed(test, failMessages, duration);
+                                isTestDone = true;
+                            }
                         }
-                        return;
+                    }
+                    else if ( (svFail = svFailRe.exec(line)) ) {
+                        const [_, simTime, shortFileName, check, messageStr, fileName, lineNo] = svFail;
+                        if (test) {
+                            let message = new vscode.TestMessage(messageStr);
+                            message.location = new vscode.Location(
+                                vscode.Uri.file(fileName),
+                                new vscode.Position(parseInt(lineNo) - 1, 0)
+                            );
+                            failMessages.push(message);
+                        }
                     }
                     this.run.appendOutput(line + '\r\n', undefined, test);
-                    const svFail = svFailRe.exec(line);
-                    if (svFail) {
-                        const [_, simTime, shortFileName, check, messageStr, fileName, lineNo] = svFail;
-                        if (!test) return;
-                        let message = new vscode.TestMessage(messageStr);
-                        message.location = new vscode.Location(
-                            vscode.Uri.file(fileName),
-                            new vscode.Position(parseInt(lineNo) - 1, 0)
-                        );
-                        failMessages.push(message);
-                        return;
-                    }
+                    if (isTestDone)
+                        test = undefined;
                 });
             });
 
