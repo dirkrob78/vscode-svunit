@@ -25,3 +25,9 @@ For each folder under the project folder which contains one or more `*_unit_test
 
 ## Screenshots
 ![Screenshot](images/screenshot1.png)
+
+## Misc
+CPU time per test can be reported for some simulators, if the simulator flushes to stdout without a large buffering delay.
+* xcelium - does not work
+* vcs - works
+* verilator - works with "runSVUnit -c '--autoflush'"

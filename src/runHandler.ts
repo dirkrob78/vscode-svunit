@@ -116,7 +116,7 @@ export class TestRunner {
         // Include the test file options if needed:
         // 1. If not using all test files in the folder
         // 2. If there are subfolders that need to be excluded
-        if (testFiles.length < testFolder.children.size && isAnyFolderASubfolder) {
+        if (testFiles.length < testFolder.children.size || isAnyFolderASubfolder) {
             testSelect = testFiles.map(file => `-t ${file}`).join(' ');
         }
 
