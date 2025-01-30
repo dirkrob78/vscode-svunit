@@ -7,6 +7,7 @@ export class TestRunner {
     private request!: vscode.TestRunRequest;
     private token!: vscode.CancellationToken;
     private run!: vscode.TestRun;
+    private enqueuedTests = new Set<vscode.TestItem>();
 
     constructor(controller: vscode.TestController) {
         this.controller = controller;
@@ -55,6 +56,11 @@ export class TestRunner {
 
             await this.executeCommand(runCommand, cwd, testFolder);
         }
+        // For tests which are still enqueued, mark them as failed
+        this.enqueuedTests.forEach((testItem) => {
+            this.run.failed(testItem, [new vscode.TestMessage(
+                'Test did not start - Check for compilation errors.')]);
+        });
         this.run.end();
     }
 
@@ -64,6 +70,7 @@ export class TestRunner {
         let allIncludes: string[] = [];
         let allExcludes: string[] = [];
         let allPossibleIncludes: string[] = [];
+        this.enqueuedTests.clear();
 
         testFolder.children.forEach((testFile) => {
             const shortFileName = testFile.label.replace(/_unit_test\.sv$/, '_ut');
@@ -80,6 +87,8 @@ export class TestRunner {
                     excludedTests.push(`${shortFileName}.${testItem.label}`);
                 } else if (this.request.include?.includes(testItem)) {
                     includedTests.push(`${shortFileName}.${testItem.label}`);
+                    this.run.enqueued(testItem);
+                    this.enqueuedTests.add(testItem);
                 }
             });
 
@@ -92,6 +101,10 @@ export class TestRunner {
                 allPossibleIncludes.push(defaultInclude);
                 if (includedTests.length === 0) {
                     includedTests = [defaultInclude];
+                    testFile.children.forEach((testItem) => {
+                        this.run.enqueued(testItem);
+                        this.enqueuedTests.add(testItem);
+                    });
                 }
                 testFiles.push(testFile.label);
                 allIncludes.push(...includedTests);
@@ -220,10 +233,12 @@ export class TestRunner {
                             } else if (status === 'PASSED') {
                                 let duration = Date.now() - startTime;
                                 this.run.passed(test, duration);
+                                this.enqueuedTests.delete(test);
                                 isTestDone = true;
                             } else if (status === 'FAILED') {
                                 let duration = Date.now() - startTime;
                                 this.run.failed(test, failMessages, duration);
+                                this.enqueuedTests.delete(test);
                                 isTestDone = true;
                             }
                         }
