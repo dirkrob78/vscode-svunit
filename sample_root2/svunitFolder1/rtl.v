@@ -1,8 +1,6 @@
-`include "defines.vh"
-
 module rtl
 #(
-  width = `WIDTH
+  width = 1
 )
 (
   input clk,
