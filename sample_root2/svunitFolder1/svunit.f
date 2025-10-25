@@ -1,7 +1,5 @@
-+incdir+../someLibDir
 +incdir+$SVUNIT_INSTALL/svunit_base/util
 
 // Paths relative to out folder
 ../my_and_module.v
-../rtl.v
-// ../usleep_wrapper.c
+../usleep_wrapper.c

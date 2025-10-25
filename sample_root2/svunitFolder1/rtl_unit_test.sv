@@ -1,9 +1,11 @@
 `include "svunit_defines.svh"
+`include "rtl.v"
 `include "clk_and_reset.svh"
 
-module struct_unit_test;
+module rtl_unit_test;
   import svunit_pkg::svunit_testcase;
-  string name = "struct_ut"; 
+
+  string name = "rtl_ut";
   svunit_testcase svunit_ut;
 
 
@@ -63,59 +65,64 @@ module struct_unit_test;
   //   `SVTEST_END
   //===================================
   `SVUNIT_TESTS_BEGIN
-  // Define the structs
-typedef struct {
-    int field1;
-    real field2;
-} simple_struct_t;
 
-`SVTEST(test_real_equality)
-    real x, y;
-    x = 1.1;
-    y = 2.2;
-    `FAIL_UNLESS_EQUAL(x, y);
-`SVTEST_END
+  //---------------------------------
+  // verify the combinational output
+  //---------------------------------
+  `SVTEST(ab_output_is_1)
+    a = 1;
+    b = 1;
 
-//---------------------------------
-// Test equality of two simple structs
-//---------------------------------
-`SVTEST(test_struct_equality_should_fail)
-    simple_struct_t struct1;
-    simple_struct_t struct2;
+    pause();
+    
+    `FAIL_UNLESS_EQUAL(ab, 1);
+    `FAIL_UNLESS_EQUAL(ab, 1);
+  `SVTEST_END
 
-    // Initialize the structs
-    struct1.field1 = 10;
-    struct1.field2 = 1.1;
+  `SVTEST(ab_output_is_0)
+    a = 0;
+    b = 1;
 
-    struct2.field1 = 11;
-    struct2.field2 = 2.2;
+    pause();
 
-    $display(struct2.field2);
+    `FAIL_UNLESS_EQUAL(ab, 0);
+  `SVTEST_END
 
-    // Compare the structs
-    $display("Testing structure equality");
-    $display("should fail");
-    `FAIL_UNLESS_EQUAL(struct1, struct2);
-`SVTEST_END
+  //---------------------------
+  // verify the flopped output
+  //---------------------------
+  `SVTEST(Qab_output_is_1)
+    a = 1;
+    b = 1;
 
-`SVTEST(test_struct_equality_should_pass)
-    simple_struct_t struct1;
-    simple_struct_t struct2;
+    step();
+    nextSamplePoint();
 
-    // Initialize the structs
-    struct1.field1 = 10;
-    struct1.field2 = 20.0/7;
+    `FAIL_IF(Qab !== 1);
+  `SVTEST_END
 
-    struct2.field1 = 10;
-    struct2.field2 = 20.0/7;
+  `SVTEST(Qab_output_is_0)
+    a = 1;
+    b = 0;
 
-    // Compare the structs
-    $display("Testing structure equality");
-    $display("should pass");
-    `FAIL_UNLESS_EQUAL(struct1, struct2);
-`SVTEST_END
+    step();
+    nextSamplePoint();
+
+    `FAIL_IF(Qab !== 0);
+  `SVTEST_END
 
 
-`SVUNIT_TESTS_END
+  //------------------------------------
+  // verify the reset state of the flop
+  //------------------------------------
+  `SVTEST(reset_state)
+    rst_n = 0;
+
+    nextSamplePoint();
+
+    `FAIL_IF(Qab !== 0);
+  `SVTEST_END
+
+  `SVUNIT_TESTS_END
 
 endmodule

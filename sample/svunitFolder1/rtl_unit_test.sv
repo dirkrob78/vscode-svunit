@@ -1,10 +1,12 @@
 `include "svunit_defines.svh"
-`include "rtl.v"
 `include "clk_and_reset.svh"
 
 module rtl_unit_test;
   import svunit_pkg::svunit_testcase;
-  import "DPI-C" function void mysleep(real seconds);
+  //import "DPI-C" function void mysleep(real seconds);
+  function void mysleep(real seconds);
+    // Fake version
+  endfunction
 
   string name = "rtl_ut";
   svunit_testcase svunit_ut;

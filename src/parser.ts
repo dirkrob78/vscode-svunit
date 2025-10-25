@@ -2,60 +2,71 @@ import path = require('path');
 import * as vscode from 'vscode';
 
 export async function discoverAllFilesInWorkspace(
-    controller: vscode.TestController
+    controller: vscode.TestController,
+    workspaceItem: vscode.TestItem,
+    workspaceFolder: vscode.WorkspaceFolder
 ) {
-    if (!vscode.workspace.workspaceFolders) {
-        console.log('No workspace folders found.');
-        return; // handle the case of no open folders
-    }
-
-    const pattern = '**/*unit_test.sv';
+    const pattern = new vscode.RelativePattern(workspaceFolder, '**/*unit_test.sv');
     const testFiles = await vscode.workspace.findFiles(pattern);
-    console.log(`Found ${testFiles.length} test files.`);
+    console.log(`Found ${testFiles.length} test files in ${workspaceFolder.name}.`);
     for (const file of testFiles) {
-        await processTestFile(controller, file);
+        await processTestFile(controller, file, workspaceItem, workspaceFolder);
     }
 
     // Set up file system watcher
     const watcher = vscode.workspace.createFileSystemWatcher(pattern);
     watcher.onDidChange(async file => {
         console.log(`File changed: ${file.toString()}`);
-        await processTestFile(controller, file);
+        await processTestFile(controller, file, workspaceItem, workspaceFolder);
     });
 
     watcher.onDidCreate(async file => {
         console.log(`File created: ${file.toString()}`);
-        await processTestFile(controller, file);
+        await processTestFile(controller, file, workspaceItem, workspaceFolder);
     });
 
     watcher.onDidDelete(uri => {
-        // Remove the test item from the controller,
-        // assumes uri of the test item is the file path
+        // Remove the test item from the controller
         console.log(`File deleted: ${uri.toString()}`);
-        const testItem = controller.items.get(uri.toString());
-        if (testItem) {
-            // Save parent test item
-            const parentTest = testItem.parent;
+        const testItem = findTestItemByUri(workspaceItem, uri);
+        if (testItem && testItem.parent) {
             // Delete the test item from its parent list
-            parentTest?.children.delete(testItem.id);
-            // If parent test item (folder) is now empty, delete it too
-            if (parentTest && parentTest.children.size === 0) {
-                parentTest.parent?.children.delete(parentTest.id);
-            }
+            testItem.parent.children.delete(testItem.id);
+            // If parent test item (folder) is now empty, clean up the hierarchy
+            cleanupEmptyParents(testItem.parent);
         }
     });
+}
 
-    // Ensure the watcher is disposed when the extension is deactivated
-    vscode.workspace.onDidChangeWorkspaceFolders(() => {
-        watcher.dispose();
+function cleanupEmptyParents(item: vscode.TestItem) {
+    if (item.children.size === 0 && item.parent) {
+        item.parent.children.delete(item.id);
+        cleanupEmptyParents(item.parent);
+    }
+}
+
+function findTestItemByUri(parent: vscode.TestItem, uri: vscode.Uri): vscode.TestItem | undefined {
+    if (parent.uri?.toString() === uri.toString()) {
+        return parent;
+    }
+    
+    let result: vscode.TestItem | undefined;
+    parent.children.forEach(child => {
+        if (!result) {
+            result = findTestItemByUri(child, uri);
+        }
     });
+    
+    return result;
 }
 
 async function processTestFile(
     controller: vscode.TestController,
-    file: vscode.Uri
+    file: vscode.Uri,
+    workspaceItem: vscode.TestItem,
+    workspaceFolder: vscode.WorkspaceFolder
 ) {
-    const testFile = getOrCreateFile(controller, file);
+    const testFile = getOrCreateFile(controller, file, workspaceItem, workspaceFolder);
     if (testFile) {
         await parseTestsInFileContents(controller, testFile);
     }
@@ -63,36 +74,45 @@ async function processTestFile(
 
 export function getOrCreateFile(
     controller: vscode.TestController,
-    uri: vscode.Uri
+    uri: vscode.Uri,
+    workspaceItem: vscode.TestItem,
+    workspaceFolder: vscode.WorkspaceFolder
 ) {
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-    if (!workspaceFolder) {
-        return;
-    }
-
     const relativePath = path.relative(workspaceFolder.uri.fsPath, uri.fsPath);
-    const dirname = path.dirname(relativePath) + '/';
-
-    // Create or get the directory-level test item
-    let dirItem = controller.items.get(dirname);
-    if (!dirItem) {
-        dirItem = controller.createTestItem(dirname, dirname);
-        controller.items.add(dirItem);
+    const pathSegments = relativePath.split(path.sep);
+    
+    // Build hierarchy: workspace -> folders -> file
+    let currentParent = workspaceItem;
+    
+    // Create folder hierarchy (all segments except the last one which is the file)
+    for (let i = 0; i < pathSegments.length - 1; i++) {
+        const segment = pathSegments[i];
+        const segmentPath = pathSegments.slice(0, i + 1).join('/') + '/';
+        const segmentId = `${workspaceItem.id}/${segmentPath}`;
+        
+        let folderItem = currentParent.children.get(segmentId);
+        if (!folderItem) {
+            const segmentUri = vscode.Uri.joinPath(workspaceFolder.uri, ...pathSegments.slice(0, i + 1));
+            folderItem = controller.createTestItem(segmentId, segmentPath, segmentUri);
+            currentParent.children.add(folderItem);
+        }
+        currentParent = folderItem;
     }
 
     // Create or get the file-level test item
-    const existing = dirItem.children.get(uri.toString());
+    const fileId = uri.toString();
+    const existing = currentParent.children.get(fileId);
     if (existing) {
         return existing;
     }
 
     const file = controller.createTestItem(
-        uri.toString(),
+        fileId,
         path.basename(uri.fsPath),
         uri
     );
     file.canResolveChildren = true;
-    dirItem.children.add(file);
+    currentParent.children.add(file);
     console.log(`Created test item for file: ${file.label}`);
     return file;
 }
@@ -112,8 +132,8 @@ export async function parseTestsInFileContents(
         contents = new TextDecoder().decode(rawContent);
     }
 
-    const svtestRe = /^\s*`SVTEST\s*\(\s*(\w+)\s*\)/;
-    const svtestEndRe = /^\s*`SVTEST_END/;
+    const svtestRe = /^\s*\`SVTEST\s*\(\s*(\w+)\s*\)/;
+    const svtestEndRe = /^\s*\`SVTEST_END/;
 
     const lines = contents.split('\n');
 

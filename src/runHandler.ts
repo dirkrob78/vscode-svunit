@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getTest } from './helpers';
+import { getTest, getWorkspaceFolderForTest } from './helpers';
 
 export class TestRunner {
     private controller: vscode.TestController;
@@ -24,21 +24,35 @@ export class TestRunner {
         this.token = token;
         this.run = this.controller.createTestRun(request);
 
-        // Convert controller.items to an array and sort by label
-        const sortedFolders = Array.from(this.controller.items).sort(
-            (a, b) => a[1].label.localeCompare(b[1].label)
-        );
+        // Collect all test folders from all workspace roots
+        const testFolders: vscode.TestItem[] = [];
+        
+        // Iterate through workspace items (top level in multi-root workspace)
+        this.controller.items.forEach(workspaceItem => {
+            // Skip if workspace is explicitly excluded
+            if (this.request.exclude?.includes(workspaceItem)) {
+                return;
+            }
+            
+            // Iterate through the children of workspace items (actual test folders like svunitFolder1/)
+            workspaceItem.children.forEach(testFolder => {
+                if (this.shouldIncludeItem(testFolder)) {
+                    testFolders.push(testFolder);
+                }
+            });
+        });
+        
+        // Sort test folders by label
+        testFolders.sort((a, b) => a.label.localeCompare(b.label));
 
-        // Loop over top level of test items (folders containing test files)
-        for (const folder of sortedFolders) {
+        // Loop over test folders (folders containing test files)
+        for (const testFolder of testFolders) {
             if (this.token.isCancellationRequested) {
                 console.log('Cancellation requested, stopping.');
                 break;
             }
 
-            const testFolder = folder[1];
-            if (testFolder.children.size === 0 ||
-                this.request.exclude?.includes(testFolder)) {
+            if (testFolder.children.size === 0) {
                 continue;
             }
 
@@ -48,8 +62,16 @@ export class TestRunner {
                 continue; // Skip this folder if no test files matched
             }
 
+            // Dynamically determine the workspace folder for this test
+            const workspaceFolder = getWorkspaceFolderForTest(testFolder);
+            if (!workspaceFolder) {
+                console.log(`Could not determine workspace folder for ${testFolder.label}`);
+                continue;
+            }
+
             const runCommand = this.constructRunCommand(testSelect);
-            const cwd = `${vscode.workspace.workspaceFolders?.[0].uri.fsPath}/${testFolder.label}`;
+            const relativePath = vscode.workspace.asRelativePath(testFolder.uri!, false);
+            const cwd = vscode.Uri.joinPath(workspaceFolder.uri, relativePath).fsPath;
             this.run.appendOutput("cd " + cwd + '\r\n');
             this.run.appendOutput(runCommand + '\r\n');
             this.run.appendOutput(`Processing folder: ${testFolder.label}\r\n`);
@@ -62,6 +84,50 @@ export class TestRunner {
                 'Test did not start - Check for compilation errors.')]);
         });
         this.run.end();
+    }
+
+    /**
+     * Determines if a test item should be included based on the request's include/exclude filters.
+     * An item is included if:
+     * - No include filter exists (run all), OR
+     * - The item itself is explicitly included, OR
+     * - Any ancestor is included, OR
+     * - Any descendant is included
+     */
+    private shouldIncludeItem(item: vscode.TestItem): boolean {
+        // If explicitly excluded, don't include
+        if (this.request.exclude?.includes(item)) {
+            return false;
+        }
+        
+        // If no include filter, include everything (unless explicitly excluded above)
+        if (!this.request.include) {
+            return true;
+        }
+        
+        // Check if item itself is included
+        if (this.request.include.includes(item)) {
+            return true;
+        }
+        
+        // Check if any ancestor is included
+        let current = item.parent;
+        while (current) {
+            if (this.request.include.includes(current)) {
+                return true;
+            }
+            current = current.parent;
+        }
+        
+        // Check if any descendant is included using a more efficient approach
+        let hasIncludedDescendant = false;
+        item.children.forEach(child => {
+            if (!hasIncludedDescendant && (this.request.include?.includes(child) || this.shouldIncludeItem(child))) {
+                hasIncludedDescendant = true;
+            }
+        });
+        
+        return hasIncludedDescendant;
     }
 
     private processTestFiles(testFolder: vscode.TestItem): string | undefined {
@@ -92,9 +158,8 @@ export class TestRunner {
                 }
             });
 
-            const isTestFileIncluded = (!this.request.include ||
-                this.request.include.includes(testFile) ||
-                this.request.include.includes(testFolder));
+            // Check if the test file should be included
+            const isTestFileIncluded = this.shouldIncludeItem(testFile);
 
             if (isTestFileIncluded || includedTests.length > 0) {
                 const defaultInclude = `${shortFileName}.*`;

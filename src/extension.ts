@@ -12,7 +12,30 @@ export async function activate(context: vscode.ExtensionContext) {
     controller.resolveHandler = async test => {
         if (!test) {
             console.log('Discovering all files in workspace...');
-            await discoverAllFilesInWorkspace(controller);
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (!workspaceFolders) {
+                console.log('No workspace folders found.');
+                return;
+            }
+            
+            // Iterate through all workspace folders and create a test item for each
+            for (const workspaceFolder of workspaceFolders) {
+                console.log(`Processing workspace folder: ${workspaceFolder.name}`);
+                
+                // Create or get workspace-level test item
+                let workspaceItem = controller.items.get(workspaceFolder.uri.toString());
+                if (!workspaceItem) {
+                    workspaceItem = controller.createTestItem(
+                        workspaceFolder.uri.toString(),
+                        workspaceFolder.name,
+                        workspaceFolder.uri
+                    );
+                    workspaceItem.canResolveChildren = true;
+                    controller.items.add(workspaceItem);
+                }
+                
+                await discoverAllFilesInWorkspace(controller, workspaceItem, workspaceFolder);
+            }
         } else {
             console.log(`Parsing tests in file: ${test.uri?.toString()}`);
             await parseTestsInFileContents(controller, test);
