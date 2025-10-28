@@ -31,10 +31,15 @@ export async function activate(context: vscode.ExtensionContext) {
                         workspaceFolder.uri
                     );
                     workspaceItem.canResolveChildren = true;
-                    controller.items.add(workspaceItem);
+                    // Don't add to controller yet - wait until we know there are test files
                 }
                 
-                await discoverAllFilesInWorkspace(controller, workspaceItem, workspaceFolder);
+                const hasTests = await discoverAllFilesInWorkspace(controller, workspaceItem, workspaceFolder);
+                
+                // Only add workspace item if it contains test files
+                if (hasTests && !controller.items.get(workspaceFolder.uri.toString())) {
+                    controller.items.add(workspaceItem);
+                }
             }
         } else {
             console.log(`Parsing tests in file: ${test.uri?.toString()}`);

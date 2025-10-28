@@ -5,10 +5,13 @@ export async function discoverAllFilesInWorkspace(
     controller: vscode.TestController,
     workspaceItem: vscode.TestItem,
     workspaceFolder: vscode.WorkspaceFolder
-) {
+): Promise<boolean> {
     const pattern = new vscode.RelativePattern(workspaceFolder, '**/*unit_test.sv');
     const testFiles = await vscode.workspace.findFiles(pattern);
     console.log(`Found ${testFiles.length} test files in ${workspaceFolder.name}.`);
+    
+    const hasTests = testFiles.length > 0;
+    
     for (const file of testFiles) {
         await processTestFile(controller, file, workspaceItem, workspaceFolder);
     }
@@ -36,6 +39,8 @@ export async function discoverAllFilesInWorkspace(
             cleanupEmptyParents(testItem.parent);
         }
     });
+    
+    return hasTests;
 }
 
 function cleanupEmptyParents(item: vscode.TestItem) {

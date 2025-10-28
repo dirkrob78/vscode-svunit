@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../sample_root2"
+		},
+		{
+			"path": "../sample_root3"
 		}
 	],
 	"settings": {}
