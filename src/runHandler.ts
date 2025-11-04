@@ -70,8 +70,10 @@ export class TestRunner {
             }
 
             const runCommand = this.constructRunCommand(testSelect);
-            const relativePath = vscode.workspace.asRelativePath(testFolder.uri!, false);
-            const cwd = vscode.Uri.joinPath(workspaceFolder.uri, relativePath).fsPath;
+            
+            // Use the testFolder's URI directly as it should already be the correct path
+            const cwd = testFolder.uri!.fsPath;
+            
             this.run.appendOutput("cd " + cwd + '\r\n');
             this.run.appendOutput(runCommand + '\r\n');
             this.run.appendOutput(`Processing folder: ${testFolder.label}\r\n`);
@@ -240,15 +242,24 @@ export class TestRunner {
         testFolder: vscode.TestItem
     ) {
         await new Promise<void>((resolve, reject) => {
-            const process = require('child_process').spawn(runCommand, [], {
-                shell: true,
+            // Validate that cwd exists and is accessible
+            const fs = require('fs');
+            if (!fs.existsSync(cwd)) {
+                const errorMsg = `Working directory does not exist: ${cwd}`;
+                this.run.appendOutput(errorMsg + '\r\n');
+                console.error(errorMsg);
+                reject(new Error(errorMsg));
+                return;
+            }
+            
+            const childProcess = require('child_process').spawn('/bin/sh', ['-c', runCommand], {
                 cwd: cwd
             });
             console.log('Dir: ' + cwd);
 
             // Abort the process upon cancellation
             this.token.onCancellationRequested(() => {
-                process.kill();
+                childProcess.kill();
                 this.run.end();
                 console.log('Process aborted due to cancellation.');
                 reject(new Error('Process aborted due to cancellation.'));
@@ -258,7 +269,7 @@ export class TestRunner {
             const svFailRe = /^ERROR: \[(\d+)\]\[(\w+)\]: (\w+): (.*) \(at (?:(.*) line:(\d+))|(?:(.*):(\d+)\))/;
 
             let test: vscode.TestItem | undefined;
-            process.stderr.on('data', (data: any) => {
+            childProcess.stderr.on('data', (data: any) => {
                 const ansiRed = '\x1b[31m';
                 const ansiReset = '\x1b[0m';
                 this.run.appendOutput(
@@ -271,7 +282,7 @@ export class TestRunner {
 
             let startTime = Date.now();
             let failMessages: vscode.TestMessage[] = [];
-            process.stdout.on('data', (data: any) => {
+            childProcess.stdout.on('data', (data: any) => {
                 const lines = data.toString().split('\n');
                 // Anything after the last newline is a partial line
                 // send to test output but don't process
@@ -325,13 +336,13 @@ export class TestRunner {
                 });
             });
 
-            process.on('error', (err: any) => {
+            childProcess.on('error', (err: any) => {
                 vscode.window.showErrorMessage(err.message);
                 console.log(`Child exited with code ${err}`);
                 reject(err);
             });
 
-            process.on('close', (code: number) => {
+            childProcess.on('close', (code: number) => {
                 console.log(`child process exited with code ${code}`);
                 resolve();
             });

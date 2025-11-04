@@ -2,13 +2,14 @@
 	"name": "svunit",
 	"displayName": "SVUnit",
 	"description": "Run SVUnit tests from VSCode test explorer",
-	"version": "0.0.8",
+	"version": "0.0.11",
 	"publisher": "DirkRobinson",
 	"private": true,
 	"license": "Apache-2.0",
 	"repository": "https://github.com/dirkrob78/vscode-svunit",
+	"icon": "images/svunit-logo.png",
 	"engines": {
-		"vscode": "^1.88.0"
+		"vscode": "^1.93.0"
 	},
 	"categories": [
 		"Other"
@@ -26,8 +27,8 @@
 	"devDependencies": {
 		"@eslint/js": "^9.13.0",
 		"@stylistic/eslint-plugin": "^2.9.0",
-		"@types/node": "^20",
-		"@types/vscode": "^1.88.0",
+		"@types/node": "^22",
+		"@types/vscode": "^1.93.0",
 		"eslint": "^9.13.0",
 		"typescript": "^5.7.2",
 		"typescript-eslint": "^8.16.0"

@@ -1,4 +1,4 @@
-import path = require('path');
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 export async function discoverAllFilesInWorkspace(
@@ -86,27 +86,23 @@ export function getOrCreateFile(
     const relativePath = path.relative(workspaceFolder.uri.fsPath, uri.fsPath);
     const pathSegments = relativePath.split(path.sep);
     
-    // Build hierarchy: workspace -> folders -> file
-    let currentParent = workspaceItem;
+    // Create a single folder item for the directory path (excluding the filename)
+    // Use "./" for root level files
+    const directoryPath = pathSegments.length === 1 ? "./" : pathSegments.slice(0, -1).join('/') + '/';
+    const folderId = `${workspaceItem.id}/${directoryPath}`;
     
-    // Create folder hierarchy (all segments except the last one which is the file)
-    for (let i = 0; i < pathSegments.length - 1; i++) {
-        const segment = pathSegments[i];
-        const segmentPath = pathSegments.slice(0, i + 1).join('/') + '/';
-        const segmentId = `${workspaceItem.id}/${segmentPath}`;
-        
-        let folderItem = currentParent.children.get(segmentId);
-        if (!folderItem) {
-            const segmentUri = vscode.Uri.joinPath(workspaceFolder.uri, ...pathSegments.slice(0, i + 1));
-            folderItem = controller.createTestItem(segmentId, segmentPath, segmentUri);
-            currentParent.children.add(folderItem);
-        }
-        currentParent = folderItem;
+    let folderItem = workspaceItem.children.get(folderId);
+    if (!folderItem) {
+        const folderUri = pathSegments.length === 1 
+            ? workspaceFolder.uri 
+            : vscode.Uri.joinPath(workspaceFolder.uri, ...pathSegments.slice(0, -1));
+        folderItem = controller.createTestItem(folderId, directoryPath, folderUri);
+        workspaceItem.children.add(folderItem);
     }
 
-    // Create or get the file-level test item
+    // Create or get the file-level test item under the folder
     const fileId = uri.toString();
-    const existing = currentParent.children.get(fileId);
+    const existing = folderItem.children.get(fileId);
     if (existing) {
         return existing;
     }
@@ -117,7 +113,7 @@ export function getOrCreateFile(
         uri
     );
     file.canResolveChildren = true;
-    currentParent.children.add(file);
+    folderItem.children.add(file);
     console.log(`Created test item for file: ${file.label}`);
     return file;
 }
@@ -137,8 +133,8 @@ export async function parseTestsInFileContents(
         contents = new TextDecoder().decode(rawContent);
     }
 
-    const svtestRe = /^\s*\`SVTEST\s*\(\s*(\w+)\s*\)/;
-    const svtestEndRe = /^\s*\`SVTEST_END/;
+    const svtestRe = /^\s*\`\w*SVTEST\s*\(\s*(\w+)\s*\)/;
+    const svtestEndRe = /^\s*\`\w*SVTEST_END/;
 
     const lines = contents.split('\n');
 

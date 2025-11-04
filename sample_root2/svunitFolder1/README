@@ -1,3 +1,0 @@
-From example inside SVUnit
-Run command:
-runSVUnit -s verilator -c '../usleep_wrapper.c --autoflush -Wno-lint' -o out
